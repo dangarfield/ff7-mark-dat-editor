@@ -2,8 +2,7 @@ import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17/+esm'
 import * as THREE from 'three'
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-
-console.log('OrbitControls', OrbitControls)
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
 /*
   // Schema notes
@@ -35,9 +34,12 @@ let markDat16
 let tetraGeom
 let camera
 let controls
-let box
+let mixer
+
 // Settings for the 3D display model
 const settings = {
+  'Rotate Scene': true,
+  'Rotate Mark': true,
   'Top 1': [255, 0, 0], // '#FFFF00',
   'Top 2': [0, 255, 0], // '#9B7800',
   'Top 3': [0, 0, 255], // '#FFD800',
@@ -98,35 +100,41 @@ const setVertexPositions = () => {
     tetraGeom.attributes.position.setXYZ(i, settings[`${posKey} X`] * -1, settings[`${posKey} Y`] * -1, settings[`${posKey} Z`] * -1)
   }
   tetraGeom.attributes.position.needsUpdate = true
+  tetraGeom.computeBoundingBox()
 
   // camera.lookAt(new THREE.Vector3(settings['Bottom X'] * -1, settings['Bottom Y'] * -1, settings['Bottom Z'] * -1))
-  camera.position.x = settings['Top 1 X'] * -1 + 600
-  camera.position.y = settings['Top 1 Y'] * -1 + 600
-  camera.position.z = settings['Top 1 Z'] * -1 + 600
+  // camera.position.x = settings['Top 1 X'] * -1 + 600
+  // camera.position.y = settings['Top 1 Y'] * -1 + 600
+  // camera.position.z = settings['Top 1 Z'] * -1 + 600
   // controls.position.y = settings['Top 1 Z'] * -1
-  controls.target = new THREE.Vector3(settings['Bottom X'] * -1, settings['Bottom Y'] * -1, settings['Bottom Z'] * -1)
+  // controls.target = new THREE.Vector3(settings['Bottom X'] * -1, settings['Bottom Y'] * -1, settings['Bottom Z'] * -1)
   // console.log('tetraGeom.attributes.position', tetraGeom.attributes.position)
 
-  console.log('bottom y', settings['Bottom Y'] * -1, settings['Bottom Y'] * -1)
+  // console.log('bottom y', settings['Bottom Y'] * -1, settings['Bottom Y'] * -1)
 }
 
 const createScene = () => {
   // Scene
   const scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 20000)
-  camera.position.z = 900
-  camera.position.y = 1.5
-  camera.lookAt(new THREE.Vector3(0, 0, 0))
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 60000)
+  camera.position.set(3150, 1920, 2430)
   const renderer = new THREE.WebGLRenderer({ antialias: true })
-  renderer.setClearColor('#222222')
+  renderer.setClearColor('#000000')
   renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.outputEncoding = THREE.sRGBEncoding
+
   document.body.appendChild(renderer.domElement)
 
   controls = new OrbitControls(camera, renderer.domElement)
   controls.minDistance = 1200
-  controls.addEventListener('change', () => {
-    console.log('distance', controls.object.position.distanceTo(controls.target))
-  })
+  controls.maxDistance = 5500
+  // controls.minPolarAngle = Math.PI
+  controls.maxPolarAngle = Math.PI / 1.77
+  // controls.minAzimuthAngle = 2 * Math.PI
+  controls.autoRotate = true
+  controls.autoRotateSpeed = -3
+  controls.target = new THREE.Vector3(0, 1000, 0)
+
   // Triangle
   tetraGeom = new THREE.BufferGeometry()
   const vertices = new Float32Array(12 * 3)
@@ -135,22 +143,45 @@ const createScene = () => {
   tetraGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(12 * 3), 3))
   const meshMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })
   const selectionTriangle = new THREE.Mesh(tetraGeom, meshMaterial)
+  selectionTriangle.frustumCulled = false // For some reason the buffer geom is not visible when you can't see 0,0,0
   window.selectionTriangle = selectionTriangle
   window.camera = camera
   window.controls = controls
   scene.add(selectionTriangle)
-  box = new THREE.BoxHelper(selectionTriangle, 0xffff00)
-  scene.add(box)
 
   // setVertexColors()
   window.tetraGeom = tetraGeom
-  console.log('tetraGeom', tetraGeom)
+  // console.log('tetraGeom', tetraGeom)
+  const loader = new GLTFLoader()
+  loader.load(
+    'https://kujata-data-dg.netlify.app/data/battle/battle.lgp/opaa.hrc.gltf',
+    (gltf) => {
+      scene.add(gltf.scene)
+    }
+  )
+  loader.load(
+    'https://kujata-data-dg.netlify.app/data/battle/battle.lgp/rtaa.hrc.gltf',
+    (gltf) => {
+      mixer = new THREE.AnimationMixer(gltf.scene)
+      gltf.scene.position.y = -gltf.animations[0].tracks[0].values[1]
+      for (const anim of gltf.animations) {
+        for (const track of anim.tracks) {
+          track.optimize()
+        }
+      }
+      const action = mixer.clipAction(gltf.animations[0])
+      action.play()
+      scene.add(gltf.scene)
+    }
+  )
+  const clock = new THREE.Clock()
 
   scene.add(new THREE.AxesHelper(100))
   // GUI Config
   const gui = new GUI()
   const colorFolder = gui.addFolder('Colors')
   const positionsFolder = gui.addFolder('Positions')
+  const miscFolder = gui.addFolder('Misc')
 
   for (const colorKey of ['Top 1', 'Top 2', 'Top 3', 'Bottom']) {
     colorFolder.addColor(settings, colorKey, 255).onChange(setVertexColors).listen()
@@ -169,12 +200,15 @@ const createScene = () => {
   loadSaveFolder.add(loadSaveFolderObj, 'Load mark.dat')
   loadSaveFolder.add(loadSaveFolderObj, 'Downlad mark.dat')
 
+  miscFolder.add(settings, 'Rotate Scene').onChange((e) => { controls.autoRotate = e })
+  miscFolder.add(settings, 'Rotate Mark')
   // Render loop
   const render = function () {
     window.requestAnimationFrame(render)
-    selectionTriangle.rotation.y -= 0.04
+    const delta = clock.getDelta()
+    if (mixer) mixer.update(delta)
+    if (settings['Rotate Mark']) selectionTriangle.rotation.y -= 0.04
     controls.update()
-    box.update()
     renderer.render(scene, camera)
   }
 
@@ -211,12 +245,12 @@ const saveDat = () => {
   // console.log('saveDat', settings, markDat)
   // Set colors onto arrayBuffer
   for (const colorKey of ['Top 1', 'Top 2', 'Top 3', 'Bottom']) {
-    console.log('colorKey', colorKey, schema[colorKey])
+    // console.log('colorKey', colorKey, schema[colorKey])
     for (const byteIndex of schema[colorKey]) {
       markDat[byteIndex] = settings[colorKey][0]
       markDat[byteIndex + 1] = settings[colorKey][1]
       markDat[byteIndex + 2] = settings[colorKey][2]
-      console.log('colorKey', colorKey, byteIndex, '->', markDat[byteIndex], markDat[byteIndex + 1], markDat[byteIndex + 2])
+      // console.log('colorKey', colorKey, byteIndex, '->', markDat[byteIndex], markDat[byteIndex + 1], markDat[byteIndex + 2])
     }
   }
   for (const posKey of ['Top 1', 'Top 2', 'Top 3', 'Bottom']) {
@@ -243,7 +277,7 @@ const loadDefaultMarkDat = async () => {
   const markDatBuf = await markDatBlob.arrayBuffer()
   markDat = new Uint8Array(markDatBuf)
   markDat16 = new Int16Array(markDatBuf)
-  console.log('markDat', markDat, markDat16, markDat16[0x06 / 2])
+  // console.log('markDat', markDat, markDat16, markDat16[0x06 / 2])
   updateDataFromLoadedDat()
 }
 const addFileInput = () => {
