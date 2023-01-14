@@ -14,4 +14,4 @@ Edit the colours and positions, click save and replace you `mark.dat` file. It's
 
 ## TODO
 
-I'll add some friendlier position modifiers so that the triangle is easier to maniulate whilst trill remaining an equilateral triangle
+There may be a way to add more vertices to this, but I no real ambition or desire to do so at this juncture. If you really want it, feel free to raise a request

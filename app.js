@@ -6,14 +6,17 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
 /*
   // Schema notes
-  // Not sure, hopefully position info of the tetrahedron
+
+  // Not sure
   2000 0000 ?
 
+  // position info of the tetrahedron
   0000 36FC 0000 0000   b  x? z y? null  0   -970    0
   0000 5FFB 68FF 0000   t1 x? z y? null  0   -1185   -152
   7DFF 5FFB 4C00 0000   t2 x? z y? null  -131  -1185   76
   8300 5FFB 4C00 0000   t3 x? z y? null  131   -1185   76
 
+  // Not sure - probably related to colour / vertex position count
   0000 0000 0000 ?
   0000 0400 0000 ?
 
@@ -38,6 +41,9 @@ let mixer
 
 // Settings for the 3D display model
 const settings = {
+  'Top height': 0,
+  'Bottom height': 0,
+  'Triangle size': 0,
   'Rotate Scene': true,
   'Rotate Mark': true,
   'Top 1': [255, 0, 0], // '#FFFF00',
@@ -93,24 +99,39 @@ const setVertexColors = () => {
   }
   tetraGeom.attributes.color.needsUpdate = true
 }
+const setSimpleTopHeight = (val) => {
+  settings['Top 1 Y'] = val
+  settings['Top 2 Y'] = val
+  settings['Top 3 Y'] = val
+  setVertexPositions()
+}
+
+const setSimpleBottomHeight = (val) => {
+  settings['Bottom Y'] = val
+  setVertexPositions()
+}
+const setTriangleSize = (val) => {
+  const angle = 180 - 120
+  const x = Math.trunc(Math.sin(angle * Math.PI / 180) * val)
+  const z = Math.trunc(Math.cos(angle * Math.PI / 180) * val)
+
+  settings['Top 1 X'] = 0
+  settings['Top 1 Z'] = -val
+  settings['Top 2 X'] = -x
+  settings['Top 2 Z'] = z
+  settings['Top 3 X'] = x
+  settings['Top 3 Z'] = z
+  setVertexPositions()
+  console.log('setTriangleSize', val, x, z)
+}
 const setVertexPositions = () => {
   // For the triangle model
   // Note, inverted positions and xyz orientation
   for (const [i, posKey] of vertexPositions.entries()) {
-    tetraGeom.attributes.position.setXYZ(i, settings[`${posKey} X`] * -1, settings[`${posKey} Y`] * -1, settings[`${posKey} Z`] * -1)
+    tetraGeom.attributes.position.setXYZ(i, settings[`${posKey} Z`] * -1, settings[`${posKey} Y`] * -1, settings[`${posKey} X`] * -1)
   }
   tetraGeom.attributes.position.needsUpdate = true
   tetraGeom.computeBoundingBox()
-
-  // camera.lookAt(new THREE.Vector3(settings['Bottom X'] * -1, settings['Bottom Y'] * -1, settings['Bottom Z'] * -1))
-  // camera.position.x = settings['Top 1 X'] * -1 + 600
-  // camera.position.y = settings['Top 1 Y'] * -1 + 600
-  // camera.position.z = settings['Top 1 Z'] * -1 + 600
-  // controls.position.y = settings['Top 1 Z'] * -1
-  // controls.target = new THREE.Vector3(settings['Bottom X'] * -1, settings['Bottom Y'] * -1, settings['Bottom Z'] * -1)
-  // console.log('tetraGeom.attributes.position', tetraGeom.attributes.position)
-
-  // console.log('bottom y', settings['Bottom Y'] * -1, settings['Bottom Y'] * -1)
 }
 
 const createScene = () => {
@@ -128,9 +149,7 @@ const createScene = () => {
   controls = new OrbitControls(camera, renderer.domElement)
   controls.minDistance = 1200
   controls.maxDistance = 5500
-  // controls.minPolarAngle = Math.PI
   controls.maxPolarAngle = Math.PI / 1.77
-  // controls.minAzimuthAngle = 2 * Math.PI
   controls.autoRotate = true
   controls.autoRotateSpeed = -3
   controls.target = new THREE.Vector3(0, 1000, 0)
@@ -144,13 +163,8 @@ const createScene = () => {
   const meshMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })
   const selectionTriangle = new THREE.Mesh(tetraGeom, meshMaterial)
   selectionTriangle.frustumCulled = false // For some reason the buffer geom is not visible when you can't see 0,0,0
-  window.selectionTriangle = selectionTriangle
-  window.camera = camera
-  window.controls = controls
   scene.add(selectionTriangle)
 
-  // setVertexColors()
-  window.tetraGeom = tetraGeom
   // console.log('tetraGeom', tetraGeom)
   const loader = new GLTFLoader()
   loader.load(
@@ -174,12 +188,13 @@ const createScene = () => {
       scene.add(gltf.scene)
     }
   )
+  scene.add(new THREE.AxesHelper(100))
   const clock = new THREE.Clock()
 
-  scene.add(new THREE.AxesHelper(100))
   // GUI Config
   const gui = new GUI()
   const colorFolder = gui.addFolder('Colors')
+  const positionsSimpleFolder = gui.addFolder('Positions Simple')
   const positionsFolder = gui.addFolder('Positions')
   const miscFolder = gui.addFolder('Misc')
 
@@ -191,6 +206,9 @@ const createScene = () => {
     positionsFolder.add(settings, `${posKey} Y`, -2000, 2000, 1).onChange(setVertexPositions).listen()
     positionsFolder.add(settings, `${posKey} Z`, -1000, 1000, 1).onChange(setVertexPositions).listen()
   }
+  positionsSimpleFolder.add(settings, 'Top height', -2000, 2000, 1).onChange(setSimpleTopHeight).listen()
+  positionsSimpleFolder.add(settings, 'Bottom height', -2000, 2000, 1).onChange(setSimpleBottomHeight).listen()
+  positionsSimpleFolder.add(settings, 'Triangle size', 0, 700, 1).onChange(setTriangleSize).listen()
 
   const loadSaveFolder = gui.addFolder('Load/Save')
   const loadSaveFolderObj = {
@@ -202,6 +220,7 @@ const createScene = () => {
 
   miscFolder.add(settings, 'Rotate Scene').onChange((e) => { controls.autoRotate = e })
   miscFolder.add(settings, 'Rotate Mark')
+
   // Render loop
   const render = function () {
     window.requestAnimationFrame(render)
@@ -235,7 +254,13 @@ const updateDataFromLoadedDat = () => {
     settings[`${posKey} X`] = markDat16[schema[`${posKey} X`] / 2]
     settings[`${posKey} Y`] = markDat16[schema[`${posKey} Y`] / 2]
     settings[`${posKey} Z`] = markDat16[schema[`${posKey} Z`] / 2]
+    if (posKey === 'Top 1') {
+      settings['Top height'] = markDat16[schema[`${posKey} Y`] / 2]
+    }
+    if (posKey === 'Bottom') settings['Bottom height'] = markDat16[schema[`${posKey} Y`] / 2]
   }
+  settings['Triangle size'] = new THREE.Vector2(0, 0)
+    .distanceTo(new THREE.Vector2(markDat16[schema['Top 1 X'] / 2], markDat16[schema['Top 1 Z'] / 2]))
 
   // console.log('updateDataFromLoadedDat', settings, markDat, tetraGeom.attributes.color)
   setVertexColors()
@@ -245,12 +270,10 @@ const saveDat = () => {
   // console.log('saveDat', settings, markDat)
   // Set colors onto arrayBuffer
   for (const colorKey of ['Top 1', 'Top 2', 'Top 3', 'Bottom']) {
-    // console.log('colorKey', colorKey, schema[colorKey])
     for (const byteIndex of schema[colorKey]) {
       markDat[byteIndex] = settings[colorKey][0]
       markDat[byteIndex + 1] = settings[colorKey][1]
       markDat[byteIndex + 2] = settings[colorKey][2]
-      // console.log('colorKey', colorKey, byteIndex, '->', markDat[byteIndex], markDat[byteIndex + 1], markDat[byteIndex + 2])
     }
   }
   for (const posKey of ['Top 1', 'Top 2', 'Top 3', 'Bottom']) {
