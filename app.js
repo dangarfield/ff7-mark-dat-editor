@@ -132,6 +132,7 @@ const setVertexPositions = () => {
   }
   tetraGeom.attributes.position.needsUpdate = true
   tetraGeom.computeBoundingBox()
+  tetraGeom.computeBoundingSphere()
 }
 
 const createScene = () => {
@@ -162,7 +163,6 @@ const createScene = () => {
   tetraGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(12 * 3), 3))
   const meshMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })
   const selectionTriangle = new THREE.Mesh(tetraGeom, meshMaterial)
-  selectionTriangle.frustumCulled = false // For some reason the buffer geom is not visible when you can't see 0,0,0
   scene.add(selectionTriangle)
 
   // console.log('tetraGeom', tetraGeom)
