@@ -2,7 +2,7 @@
 
 > A simple way to edit your triangle pointer in FF7 
 
-![FF7 mark.dat Editor](https://i.ibb.co/xmSpZW4/ff7-mark-dat-editor-2.png "FF7 mark.dat Editor")
+![FF7 mark.dat Editor](https://i.ibb.co/f2wcYPK/ff7-mark-dat-editor-3.png "FF7 mark.dat Editor")
 
 ## How can I use it?
 

@@ -17,8 +17,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
   8300 5FFB 4C00 0000   t3 x? z y? null  131   -1185   76
 
   // Not sure - probably related to colour / vertex position count
-  0000 0000 0000 ?
-  0000 0400 0000 ?
+  0000 0000 0000 0000 ?
+  0400 0000 ?
 
   // Colors - Complete
   vertex index   --   color  ?
