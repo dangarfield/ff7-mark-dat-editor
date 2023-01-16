@@ -188,7 +188,7 @@ const createScene = () => {
       scene.add(gltf.scene)
     }
   )
-  scene.add(new THREE.AxesHelper(100))
+  // scene.add(new THREE.AxesHelper(100))
   const clock = new THREE.Clock()
 
   // GUI Config
